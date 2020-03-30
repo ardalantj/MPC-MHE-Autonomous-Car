@@ -4,7 +4,7 @@ close all
 clc
 
 % CasADi v3.1.1
-addpath('/Users/ardalan/Downloads/casadi-osx-matlabR2015a-v3.5.1')
+addpath('/Users/ardalan/Casadi/casadi-osx-matlabR2015a-v3.5.1')
 import casadi.*
 
 T = 0.1; %[s]
