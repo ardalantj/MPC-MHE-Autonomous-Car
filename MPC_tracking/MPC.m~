@@ -17,23 +17,10 @@ id_time = 6;
 %   minimize for x, s.t.
 %   J(x) = 1/2 * x' * H * x + f' * x, 
 %   A*x <= b,   lb <= x <= ub
-a1 = B' * C' * Q * C * B + R;
-a2 = (C * A * x0 + C * W - Y_ref)' * Q * C * B;
 
 H = (a1 + a1')/2;
-f = a2;
-A = [];
-b = [];
-
-options = optimoptions('quadprog','Algorithm','interior-point-convex', 'Display', 'off');
-[x, fval, exitflag, output, lambda] = quadprog(H,f,A,b,[],[],lb,ub,[],options);
-
+f = 
 end 
-
-
-function [Ad,Bd,wd,Cd] = get_linearized_matrix(dt,ref,L,tau)
-
-end
 
 function x_next = calc_kinematics_model(x, u, dt, v, L, tau)
 
