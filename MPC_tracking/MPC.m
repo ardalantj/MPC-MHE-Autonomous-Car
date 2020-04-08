@@ -62,9 +62,32 @@ options = optimoptions('quadprog','Algorithm','interior-point-convex', 'Display'
 
 end 
 
-
+% error dynamics model
 function [Ad,Bd,wd,Cd] = get_linearized_matrix(dt,ref,L,tau)
 
+    % x = [x, y, yaw, delta]';
+    % u = [delta_com];
+    
+    v_ref = ref(id_vel);
+    yaw_ref = ref(id_yaw);
+    delta_ref = atan(L * ref(id_path));
+    cos_delta_r_sqd_inv = 1 / ((cos(delta_ref))^2);
+    
+    % Continous state space model
+    A = [0, 0, -v_ref * sin(yaw_ref), 0; 0, 0, v_ref*cos(yaw_ref), 0;
+        0, 0, 0, v_ref/L * cos_delta_r_sqd_inv; 0, 0, 0, 1/tau];
+    B = [0; 0; 0; -1/tau];
+    C = [1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 0];
+    w = [v_ref * cos(yaw_ref) + v_ref * sin(yaw_ref) * yaw_ref;
+         v_ref * sin(yaw_ref) - v_ref * cos(yaw_ref) * yaw_ref;
+         v_ref/L * (tan(delta_ref) - delta_ref * cos_delta_r_squared_inv);
+         0];
+     
+    Ad = eye(4) + A * dt;
+    Bd = B * dt;
+    Cd = C;
+    wd = w * dt;
+    
 end
 
 function x_next = calc_kinematics_model(x, u, dt, v, L, tau)
