@@ -41,7 +41,7 @@ end
 yaw(1) = yaw(2);
 yaw(end) = yaw(end-1);
 
-scale = 0.01;
+scale = 1;
 
 figure();
 plot(point(:,1), point(:,2), 'bo-'); hold on;

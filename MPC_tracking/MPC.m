@@ -42,7 +42,11 @@ R = zeros(DIM_INPUT*mpc_N, DIM_INPUT*mpc_N);
 mpc_ref_v = zeros(length(mpc_N), 1);
 ref_vec = zeros(mpc_N,5);
 
-
+% MPC loop
+for i = 2:mpc_N
+    ref_vec(i,:) = interp1q(ref(:,id_time), ref(:,1:5), t);
+    [Ad, Bd, wd, Cd] = get_linearized_matrix(mpc_dt, ref, param.wheelbase, param.tau);
+end
 %   Formulate optimization 
 %   minimize for x, s.t.
 %   J(x) = 1/2 * x' * H * x + f' * x, 
