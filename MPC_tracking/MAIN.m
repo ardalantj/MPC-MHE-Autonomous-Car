@@ -8,6 +8,7 @@ close all;
 % Initialize vehicle and control parameters
 Init();
 vel_ref = param.vel_ref
+
 % id handlers for easier matrix access
 id_x = 1;
 id_y = 2;

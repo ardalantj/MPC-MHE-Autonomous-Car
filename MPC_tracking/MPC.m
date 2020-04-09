@@ -20,41 +20,77 @@ error_xy = (state(id_x:id_y) - ref_start(id_x:id_y))';
 error_lat = trans_xy2lat * error_xy;
 error_lat = error_lat(2);
 
-% Allocate dynamic matrices 
-A = zeros(DIM_STATE*mpc_N, DIM_STATE);
-B = zeros(DIM_STATE*mpc_N, DIM_INPUT*mpc_N);
-W = zeros(DIM_STATE*mpc_N, 1);
-C = zeros(DIM_OUTPUT*mpc_N, DIM_STATE*mpc_N);
-Q = zeros(DIM_OUTPUT*mpc_N, DIM_OUTPUT*mpc_N);
-R = zeros(DIM_INPUT*mpc_N, DIM_INPUT*mpc_N);
+% Allocate QP matrices 
+A_bar = zeros(DIM_STATE*mpc_N, DIM_STATE);
+B_bar = zeros(DIM_STATE*mpc_N, DIM_INPUT*mpc_N);
+W_bar = zeros(DIM_STATE*mpc_N, 1);
+C_bar = zeros(DIM_OUTPUT*mpc_N, DIM_STATE*mpc_N);
+Q_bar = zeros(DIM_OUTPUT*mpc_N, DIM_OUTPUT*mpc_N);
+R_bar = zeros(DIM_INPUT*mpc_N, DIM_INPUT*mpc_N);
 
 mpc_ref_v = zeros(length(mpc_N), 1);
 ref_vec = zeros(mpc_N,5);
 
-% MPC loop
+
+% MPC loop - build QP matrices by lifting the dynamics
 for i = 2:mpc_N
+    
+    % Interpolate reference vector values between timesteps
     ref_vec(i,:) = interp1q(ref(:,id_time), ref(:,1:5), t);
     [Ad, Bd, wd, Cd] = get_linearized_matrix(mpc_dt, ref, param.wheelbase, param.tau);
+    col = (i-1) * DIM_STATE+1 : i*DIM_STATE;
+    col_prev = (i-2)*DIM_STATE+1:(i-1)*DIM_STATE;
+    A_bar(col, :) = Ad * A_bar(col_prev, :);
+    
+    for j = 1:i-1
+        row = (j-1)*DIM_INPUT+1:j*DIM_INPUT;
+        B_bar(col, row) = Ad * B_bar(col_prev, row);
+    end
+    
+    row = (i-1)*DIM_INPUT+1:i*DIM_INPUT;
+    B_bar(col, row) = Bd;
+    
+    W_bar(col) = Ad * W_bar(col_prev) + wd;
+    
+    col_c = (i-1)*DIM_OUTPUT+1:i*DIM_OUTPUT;
+    row_c = (i-1)*DIM_STATE+1:i*DIM_STATE;
+    C_bar(col_c, row_c) = Cd;
+    
+    col_q = (i-1)*DIM_OUTPUT+1:i*DIM_OUTPUT;
+    row_q = (i-1)*DIM_OUTPUT+1:i*DIM_OUTPUT;
+    Q_bar(col_q, row_q) = Q;
+    
+    R_bar(row, row) = R;
+    
+    mpc_ref_v(i) = v_ref;
+    
+    t = t + mpc_dt;
+    if t > ref(end, id_time)
+        t = ref(end, id_time);
+        disp('[MPC] path is too short to predict dynamics');
+    end
 end
 
+
+
 x0 = state';
-Y_ref = reshape(transpose(ref_vec(:,1:3)), [], 1);
+ref_qp = reshape(transpose(ref_vec(:,1:3)), [], 1);
 
 
 %   Formulate optimization 
 %   minimize for x, s.t.
 %   J(x) = 1/2 * x' * H * x + f' * x, 
 %   A*x <= b,   lb <= x <= ub
-a1 = B' * C' * Q * C * B + R;
-a2 = (C * A * x0 + C * W - Y_ref)' * Q * C * B;
+a1 = B_bar' * C_bar' * Q_bar * C_bar * B_bar + R_bar;
+a2 = (C_bar * A_bar * x0 + C_bar * W_bar - ref_qp)' * Q_bar * C_bar * B_bar;
 
 H = (a1 + a1')/2;
 f = a2;
 A = [];
 b = [];
 
-lb_ = -param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
-ub_ = param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
+lb = -param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
+ub = param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
 options = optimoptions('quadprog','Algorithm','interior-point-convex', 'Display', 'off');
 [x, fval, exitflag, output, lambda] = quadprog(H,f,A,b,[],[],lb,ub,[],options);
 
