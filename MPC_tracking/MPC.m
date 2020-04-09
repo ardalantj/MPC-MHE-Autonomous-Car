@@ -2,20 +2,9 @@ function u = MPC(state, t, ref, param)
 
 % state = [x, y, yaw, delta]
 % u = [v_des, delta_des]
-% ref = [x_ref; y_ref; yaw_ref; v_ref; k_ref; t_ref];
+% ref = [x_ref, y_ref, yaw_ref, v_ref, k_ref, t_ref];
 
 deg2rad = pi / 180;
-
-id_x = 1;
-id_y = 2;
-id_yaw = 3;
-id_vel = 4;
-id_path = 5;
-id_time = 6;
-
-DIM_STATE = 4;
-DIM_OUTPUT = 3;
-DIM_INPUT = 1;
 
 % Find nearest point from the state along the reference trajectory
 distance = vecnorm(ref(:,id_x:id_y)' - state(id_x:id_y)');
@@ -47,6 +36,11 @@ for i = 2:mpc_N
     ref_vec(i,:) = interp1q(ref(:,id_time), ref(:,1:5), t);
     [Ad, Bd, wd, Cd] = get_linearized_matrix(mpc_dt, ref, param.wheelbase, param.tau);
 end
+
+x0 = state';
+Y_ref = reshape(transpose(ref_vec(:,1:3)), [], 1);
+
+
 %   Formulate optimization 
 %   minimize for x, s.t.
 %   J(x) = 1/2 * x' * H * x + f' * x, 
@@ -63,6 +57,12 @@ lb_ = -param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
 ub_ = param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
 options = optimoptions('quadprog','Algorithm','interior-point-convex', 'Display', 'off');
 [x, fval, exitflag, output, lambda] = quadprog(H,f,A,b,[],[],lb,ub,[],options);
+
+control_input = x;
+delta_des = control_input(1);
+v_des = v_ref;
+
+u = [v_des, delta_des];
 
 end 
 

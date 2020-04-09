@@ -1,7 +1,5 @@
 % Unit conversions
-km2ms = 1000/3600;
-deg2rad = pi/180;
-rad2deg = 180/pi;
+km2ms = 1000/3600
 
 % Vehicle Params
 deg2rad = pi / 180;
