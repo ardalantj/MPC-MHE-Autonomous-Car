@@ -1,4 +1,4 @@
-% Simulation driver file for automous car trajectory planning
+% Simulation driver file for autonomous car trajectory planning
 % and tracking 
 
 clc;
@@ -7,48 +7,45 @@ close all;
 
 % Initialize vehicle and control parameters
 Init();
-vel_ref = param.vel_ref
-
-% id handlers for easier matrix access
-id_x = 1;
-id_y = 2;
-id_yaw = 3;
-id_vel = 4;
-id_curve = 5;
-id_time = 6;
-
-DIM_STATE = 4;
-DIM_OUTPUT = 3;
-DIM_INPUT = 1;
+vel_ref = param.vel_ref;
+ts = param.ts;
+tf = param.tf;
+id_x = param.id_x;
+id_y = param.id_y;
+id_yaw = param.id_yaw;
+id_vel = param.id_vel;
+id_curve = param.id_curve;
+id_time = param.id_time;
 
 % Call trajectory generator function (ref is a vector of x,y,yaw that
 % is the output from trajectory planner) 
-ref = getTrajectory();
+
+% X, Y, Yaw references 
+path = getTrajectory();
+
+ref = zeros(length(path), 6);
+ref(:,1:3) = path(:,1:3);
+ref(:,id_vel) = vel_ref * ones(length(ref),1);
 
 % Add curvature from 3 points in time to the ref vector
 % curvature = 4*triangleArea/(sideLength1*sideLength2*sideLength3)
-for i = 2:length(ref)
-    p1 = ref(i-1,id_curve);
-    p2 = ref(i, id_curve);
-    p3 = ref(i+1, id_curve);
+for i = 2:length(ref)-1
+    p1 = ref(i-1, id_x:id_y);
+    p2 = ref(i, id_x:id_y);
+    p3 = ref(i+1, id_x:id_y);
     Area = ((p2(1)-p1(1)) * (p3(2)-p1(2)) - (p2(2)-p1(2)) * p3(1)-p1(1))/2;
     ref(i,id_curve) = (4 * Area) / (norm(p1-p2)*norm(p2-p3)*norm(p3-p1));
 end
 
-% Add reference velocity to ref vector
-for i = 2:length(ref)
-   ref(i,id_vel) = ones(length(ref),1) * v_ref; 
-end
-
 % Add relative trajectory time to reference vector 
-for i = 2:lenght(ref)
+for i = 2:length(ref)
     vel = ref(i,id_vel);
     dist = norm(ref(i,id_x:id_y) - ref(i-1,id_x:id_y));
-    dt = dist/time; 
+    dt = dist/vel; 
     ref(i,id_time) = ref(i-1,id_time) * dt; 
 end
 
 % Simulate the system with the kinematic model and the MPC tracking 
 % controller along the reference trajectory
 [X,U] = Simulate_Forward(@KinematicModel, @MPC, x0, ref, ts, dt, tf, param);
-Visualize();
+%Visualize();

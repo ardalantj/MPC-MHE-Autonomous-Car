@@ -1,13 +1,13 @@
 function [state_cache, input_cache] = Simulate_Forward(model,controller,x0,ref,ts,dt,tf,param)
 
 x = x0;
-index = 0;
+index = 1;
 
 t_vec = ts:dt:tf;
 
 state_cache = zeros(length(t_vec),length(x0));
 u = controller(x0, ts, ref, param);
-input_cache = zeros(lenght(t_vec), lenght(u));
+input_cache = zeros(length(t_vec), length(u));
 
 control_dt = param.control_dt;
 

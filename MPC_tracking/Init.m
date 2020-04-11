@@ -28,5 +28,17 @@ param.mpc_Q = diag([1,1,0]);
 param.mpc_R = 0.05;
 param.vel_ref = 30 * km2ms
 
+% id handlers for easier matrix access
+param.id_x = 1;
+param.id_y = 2;
+param.id_yaw = 3;
+param.id_vel = 4;
+param.id_curve = 5;
+param.id_time = 6;
+
+param.DIM_STATE = 4;
+param.DIM_OUTPUT = 3;
+param.DIM_INPUT = 1;
+
 % initial position (x, y, yaw, delta)
 x0 = [0, 0.5, 0, 0];

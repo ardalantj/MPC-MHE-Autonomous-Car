@@ -5,6 +5,20 @@ function u = MPC(state, t, ref, param)
 % ref = [x_ref, y_ref, yaw_ref, v_ref, k_ref, t_ref];
 
 deg2rad = pi / 180;
+N = param.mpc_N;
+dt = param.mpc_dt;
+id_x = param.id_x;
+id_y = param.id_y;
+id_yaw = param.id_yaw;
+id_vel = param.id_vel;
+id_curve = param.id_curve;
+id_time = param.id_time;
+Q = param.mpc_Q;
+R = param.mpc_R;
+
+DIM_STATE = param.DIM_STATE;
+DIM_OUTPUT = param.DIM_OUTPUT;
+DIM_INPUT = param.DIM_INPUT;
 
 % Find nearest point from the state along the reference trajectory
 distance = vecnorm(ref(:,id_x:id_y)' - state(id_x:id_y)');
@@ -21,23 +35,23 @@ error_lat = trans_xy2lat * error_xy;
 error_lat = error_lat(2);
 
 % Allocate QP matrices 
-A_bar = zeros(DIM_STATE*mpc_N, DIM_STATE);
-B_bar = zeros(DIM_STATE*mpc_N, DIM_INPUT*mpc_N);
-W_bar = zeros(DIM_STATE*mpc_N, 1);
-C_bar = zeros(DIM_OUTPUT*mpc_N, DIM_STATE*mpc_N);
-Q_bar = zeros(DIM_OUTPUT*mpc_N, DIM_OUTPUT*mpc_N);
-R_bar = zeros(DIM_INPUT*mpc_N, DIM_INPUT*mpc_N);
+A_bar = zeros(DIM_STATE*N, DIM_STATE);
+B_bar = zeros(DIM_STATE*N, DIM_INPUT*N);
+W_bar = zeros(DIM_STATE*N, 1);
+C_bar = zeros(DIM_OUTPUT*N, DIM_STATE*N);
+Q_bar = zeros(DIM_OUTPUT*N, DIM_OUTPUT*N);
+R_bar = zeros(DIM_INPUT*N, DIM_INPUT*N);
 
-mpc_ref_v = zeros(length(mpc_N), 1);
-ref_vec = zeros(mpc_N,5);
+mpc_ref_v = zeros(length(N), 1);
+ref_vec = zeros(N,5);
 
 
 % MPC loop - build QP matrices by lifting the dynamics
-for i = 2:mpc_N
+for i = 2:N
     
     % Interpolate reference vector values between timesteps
     ref_vec(i,:) = interp1q(ref(:,id_time), ref(:,1:5), t);
-    [Ad, Bd, wd, Cd] = get_linearized_matrix(mpc_dt, ref, param.wheelbase, param.tau);
+    [Ad, Bd, wd, Cd] = get_linearized_matrix(dt, ref, param);
     col = (i-1) * DIM_STATE+1 : i*DIM_STATE;
     col_prev = (i-2)*DIM_STATE+1:(i-1)*DIM_STATE;
     A_bar(col, :) = Ad * A_bar(col_prev, :);
@@ -64,18 +78,15 @@ for i = 2:mpc_N
     
     mpc_ref_v(i) = v_ref;
     
-    t = t + mpc_dt;
+    t = t + dt;
     if t > ref(end, id_time)
         t = ref(end, id_time);
         disp('[MPC] path is too short to predict dynamics');
     end
 end
 
-
-
 x0 = state';
 ref_qp = reshape(transpose(ref_vec(:,1:3)), [], 1);
-
 
 %   Formulate optimization 
 %   minimize for x, s.t.
@@ -89,8 +100,8 @@ f = a2;
 A = [];
 b = [];
 
-lb = -param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
-ub = param.mpc_cons_steer_deg * deg2rad * ones(mpc_n * DIM_INPUT,1);
+lb = -param.mpc_cons_steer_deg * deg2rad * ones(N * DIM_INPUT,1);
+ub = param.mpc_cons_steer_deg * deg2rad * ones(N * DIM_INPUT,1);
 options = optimoptions('quadprog','Algorithm','interior-point-convex', 'Display', 'off');
 [x, fval, exitflag, output, lambda] = quadprog(H,f,A,b,[],[],lb,ub,[],options);
 
@@ -103,14 +114,19 @@ u = [v_des, delta_des];
 end 
 
 % error dynamics model
-function [Ad,Bd,wd,Cd] = get_linearized_matrix(dt,ref,L,tau)
+function [Ad,Bd,wd,Cd] = get_linearized_matrix(dt,ref,param)
 
     % x = [x, y, yaw, delta]';
     % u = [delta_com];
-    
+    id_vel = param.id_vel
+    id_curve = param.id_curve;
+    id_yaw = param.id_yaw;
+    L = param.wheelbase;
+    tau = param.tau;
+
     v_ref = ref(id_vel);
     yaw_ref = ref(id_yaw);
-    delta_ref = atan(L * ref(id_path));
+    delta_ref = atan(L * ref(id_curve));
     cos_delta_r_sqd_inv = 1 / ((cos(delta_ref))^2);
     
     % Continous state space model
@@ -120,7 +136,7 @@ function [Ad,Bd,wd,Cd] = get_linearized_matrix(dt,ref,L,tau)
     C = [1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 0];
     w = [v_ref * cos(yaw_ref) + v_ref * sin(yaw_ref) * yaw_ref;
          v_ref * sin(yaw_ref) - v_ref * cos(yaw_ref) * yaw_ref;
-         v_ref/L * (tan(delta_ref) - delta_ref * cos_delta_r_squared_inv);
+         v_ref/L * (tan(delta_ref) - delta_ref * cos_delta_r_sqd_inv);
          0];
      
     Ad = eye(4) + A * dt;

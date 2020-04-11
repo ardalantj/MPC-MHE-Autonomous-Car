@@ -8,7 +8,7 @@ delta = state(4);
 
 dx = v_des * cos(yaw);
 dy = v_des * sin(yaw);
-dyaw = v * tan(delta) / param.tau;
+dyaw = v_des * tan(delta) / param.tau;
 ddelta = -[delta-delta_des] / param.tau;
 
 d_state = [dx,dy,dyaw,ddelta];
