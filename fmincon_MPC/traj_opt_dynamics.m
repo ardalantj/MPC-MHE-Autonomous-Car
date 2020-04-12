@@ -1,7 +1,7 @@
 clear;clc;close all;
 
 saveFlag = 1; % To save output
-codeIter = 3; % Iteration of the code
+codeIter = 5; % Iteration of the code
 %% Initialization
 %Lower and upper bounds for simulation
 lb = []; % No bounds on torque
@@ -25,7 +25,7 @@ x0(:,4) = 1; % constant longitudanal velocity
 
 %% 1.3
 options = optimoptions(@fmincon,...
-    'Display','iter','Algorithm','interior-point','MaxFunctionEvaluations', 6e4);
+    'Display','iter','Algorithm','sqp','MaxFunctionEvaluations', 1e5);%, 'SpecifyObjectiveGradient', true ,'SpecifyConstraintGradient' , true);
 % Run the fmincon solver with the options structure
 % reporting both the location x of the minimizer and the value fval attained by the objective function
 lb = zeros(N,decVar);
@@ -40,7 +40,7 @@ ub(1:N,end) = deg2rad(45); % upper bound for steering input
 
 if saveFlag
     q = fmincon(@objfcn,x0,[],[],[],[],lb,ub,@constraints,options);
-    FileName= ['x_opt_obj_mod',num2str(codeIter),'.mat'];
+    FileName= ['x_opt_sqp',num2str(codeIter),'.mat'];
     save(FileName,'q'); % Save optimized output
 
 else
