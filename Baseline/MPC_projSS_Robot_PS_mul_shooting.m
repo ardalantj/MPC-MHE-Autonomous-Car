@@ -8,7 +8,7 @@ addpath('/home/akshit/Downloads/casadi-linux-matlabR2014b-v3.5.1')
 import casadi.*
 
 T = 0.2; %[s]
-N = 100; % prediction horizon
+N = 10; % prediction horizon
 rob_diam = 3;
 lr = 3;
 lf = 3;
@@ -110,6 +110,7 @@ u_cl=[];
 % than 10^-6 and the number of mpc steps is less than its maximum
 % value.
 main_loop = tic;
+
 while(norm((x0-xs),2) > 1e-2 && mpciter < sim_tim / T)
     args.p   = [x0;xs]; % set the values of the parameters vector
     % initial value of the optimization variables
@@ -129,6 +130,8 @@ while(norm((x0-xs),2) > 1e-2 && mpciter < sim_tim / T)
     mpciter
     mpciter = mpciter + 1;
 end;
+
+
 main_loop_time = toc(main_loop);
 ss_error = norm((x0-xs),2)
 average_mpc_time = main_loop_time/(mpciter+1); 
