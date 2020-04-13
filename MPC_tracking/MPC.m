@@ -45,6 +45,41 @@ R_bar = zeros(DIM_INPUT*N, DIM_INPUT*N);
 mpc_ref_v = zeros(length(N), 1);
 ref_vec = zeros(N,5);
 
+% First MPC step matrices
+for i = 1
+    
+    ref_vec(i,:) = interp1q(ref(:, id_time), ref(:,1:5), t);
+    v_ref = ref(id_vel);
+    
+    [Ad, Bd, wd, Cd] = get_linearized_matrix(dt, ref, param);
+    
+    col = (i-1)*DIM_STATE+1:i*DIM_STATE;
+    A_bar(col, :) = Ad;
+    
+    row = (i-1)*DIM_INPUT+1:i*DIM_INPUT;
+    B_bar(col, row) = Bd;
+    
+    W_bar(col) = wd;
+    
+    col_C = (i-1)*DIM_OUTPUT+1:i*DIM_OUTPUT;
+    row_C = (i-1)*DIM_STATE+1:i*DIM_STATE;
+    C_bar(col_C, row_C) = Cd;
+    
+    col_Q = (i-1)*DIM_OUTPUT+1:i*DIM_OUTPUT;
+    row_Q = (i-1)*DIM_OUTPUT+1:i*DIM_OUTPUT;
+    Q_bar(col_Q, row_Q) = Q;
+    
+    R_bar(row, row) = R;
+    
+    mpc_ref_v(i) = v_ref;
+    
+    t = t + dt;
+    if t > ref(end, id_time)
+        t = ref(end, id_time);
+        disp('[MPC] path is too short to predict dynamics');
+    end
+end
+
 
 % MPC loop - build QP matrices by lifting the dynamics
 for i = 2:N

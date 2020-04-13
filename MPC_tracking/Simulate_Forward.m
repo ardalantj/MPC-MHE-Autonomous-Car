@@ -3,15 +3,24 @@ function [state_cache, input_cache] = Simulate_Forward(model,controller,x0,ref,t
 x = x0;
 index = 1;
 
-t_vec = ts:dt:tf;
+t = ts:dt:tf;
 
-state_cache = zeros(length(t_vec),length(x0));
 u = controller(x0, ts, ref, param);
-input_cache = zeros(length(t_vec), length(u));
+
+% Allocate memory for caching
+state_cache = zeros(length(t),length(x0));
+input_cache = zeros(length(t), length(u));
+
 
 control_dt = param.control_dt;
+control_count = round(control_dt/dt);
 
-
+for t = ts:dt:tf
+    
+   if mod(index,control_count) == 0
+       x_noisy = x + rand(1, length(x0)) .* param.measurement_noise;
+       u = controller(x_noisy, t, ref, param); 
+   end
 
 % Runge kutta integration, more accurate than euler method 
 k1 = model(x,u,param);
@@ -25,5 +34,8 @@ state_cache(index,:) = x;
 input_cache(index,:) = u;
 
 index = index + 1;
+disp(t);
 
 end 
+
+end

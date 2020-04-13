@@ -43,9 +43,9 @@ yaw(end) = yaw(end-1);
 
 scale = 1;
 
-figure();
-plot(point(:,1), point(:,2), 'bo-'); hold on;
-quiver(px_spline', py_spline', cos(yaw) * scale, sin(yaw) * scale);
-plot(px_spline, py_spline,'r-'); grid on; hold off;
+% figure();
+% plot(point(:,1), point(:,2), 'bo-'); hold on;
+% quiver(px_spline', py_spline', cos(yaw) * scale, sin(yaw) * scale);
+% plot(px_spline, py_spline,'r-'); grid on; hold off;
 
 traj = [px_spline', py_spline', yaw];
