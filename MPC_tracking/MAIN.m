@@ -51,12 +51,13 @@ for i = 2:length(ref)
     vel = ref(i,id_vel);
     dist = norm(ref(i,id_x:id_y) - ref(i-1,id_x:id_y));
     dt = dist/vel; 
-    ref(i,id_time) = ref(i-1,id_time) * dt; 
+    ref(i,id_time) = ref(i-1,id_time) + dt; 
 end
 
 % Simulate the system with the kinematic model and the MPC tracking 
 % controller along the reference trajectory
 [X,U] = Simulate_Forward(@KinematicModel, @MPC, x0, ref, ts, dt, tf, param);
+
 %% Visualization movie plot
 
 sp_num = 18;
@@ -139,11 +140,12 @@ for i = fig_draw_i
         [rear_y-side_width, front_y-side_width, front_y+side_width, rear_y+side_width, rear_y-side_width],'k');
     rear_origin = [rear_x, rear_y, 0];
     front_origin = [rear_x + L*cos(yaw), rear_y + L*sin(yaw), 0];
+    
     rotate(body, z_axis, yaw * rad2deg, rear_origin);
     rotate(rear_tire, z_axis, yaw * rad2deg, rear_origin);
     rotate(front_tire, z_axis, yaw * rad2deg, rear_origin);
     rotate(front_tire, z_axis, delta * rad2deg, front_origin);
-    title(title_draw);
+%   title(title_draw);
     xlim([0 120]);
      
     % lat error

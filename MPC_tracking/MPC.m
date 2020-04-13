@@ -44,6 +44,7 @@ R_bar = zeros(DIM_INPUT*N, DIM_INPUT*N);
 
 mpc_ref_v = zeros(length(N), 1);
 ref_vec = zeros(N,5);
+t = ref_start(id_time);
 
 % First MPC step matrices
 for i = 1
