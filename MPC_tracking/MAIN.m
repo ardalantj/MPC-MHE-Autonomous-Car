@@ -14,7 +14,7 @@ addpath('TrajGenerator')
 
 control_mode = "mpc";
 
-save_video = 0; %1:save, 0:no
+save_video = 1; %1:save, 0:no
 
 % Runs the setup and sets the high level parameters
 Init;
@@ -53,10 +53,10 @@ ref(:,VEL) = ones(length(traj),1)*vel_ref;
 
 % Add time into trajectory
 for i = 2:length(ref)
-    v_ = ref(i,VEL);
-    d_ = norm(ref(i,XY) - ref(i-1,XY));
-    dt_ = d_ / v_;
-    ref(i, TIME) = ref(i-1, TIME) + dt_;
+    vel = ref(i,VEL);
+    dist = norm(ref(i,XY) - ref(i-1,XY));
+    dt = dist / vel;
+    ref(i, TIME) = ref(i-1, TIME) + dt;
 end
 
 % Find radius of the curve by looking at three points along the trajectory
@@ -74,19 +74,18 @@ end
 param.mpc_solve_without_constraint = false;
 [X, U, debug] = Simulate_Forward(@KinematicModel, @MPC, x0, ref, ts, dt, tf, param);
 lat_error_vec = debug(:,end);
-
-fprintf("Lateral Error: mean square = %f", norm(lat_error_vec)/simulation_time);
+%fprintf("Lateral Error: mean square = %f", norm(lat_error_vec)/simulation_time);
 
 %% Visualization and plotting
 
-sp_num = 20;
+sp_num = 18;
 subpl1 = 'subplot(sp_num,sp_num, sp_num+1:sp_num*12);';
 subpl2 = 'subplot(sp_num,sp_num, sp_num*13+1:sp_num*15);';
 subpl3 = 'subplot(sp_num,sp_num, sp_num*16+1:sp_num*18);';
 
 fig_trajectory_result = figure(1);
 
-%set(fig_trajectory_result, 'Position', [716 735 1026 1146]);
+set(fig_trajectory_result, 'Position', [716 735 1026 1146]);
 eval(subpl1);
 plot(ref(:,1), ref(:,2),'k-.'); hold on; grid on;
 xlabel('x [m]'); ylabel('y [m]');
@@ -113,7 +112,7 @@ setpoint_ideal = []; error_point = []; steer_point = []; time_bar_laterror = [];
 L = param.wheelbase;
 rear_length = 1;
 front_length = 1;
-side_width = 0.9;
+side_width = 1.3;
 fig_draw_i = 1:round(1/dt/20):length(t);
 
 %% Animation setup 
@@ -149,8 +148,9 @@ for i = fig_draw_i
 %         pred_states = debug(i, param.mpc_n+1:param.mpc_n*(4+1));
 %         pred_states = reshape(pred_states, param.mpc_n, length(pred_states)/param.mpc_n);
 %         setpoint = plot(pred_states(:,1), pred_states(:,2), 'bo'); % include linealize error
-        pred_error = debug(i, param.mpc_n*(4+1)+1:param.mpc_n*(2+4+1));
+        pred_error = debug(i, param.mpc_n*(5)+1:param.mpc_n*(7));
         pred_error = reshape(pred_error, param.mpc_n, length(pred_error)/param.mpc_n);
+        
         % nonlinear prediction 
         setpoint_ideal = plot(pred_error(:,1), pred_error(:,2), 'c', 'LineWidth', 2); 
     end

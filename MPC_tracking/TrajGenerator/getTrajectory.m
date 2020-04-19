@@ -1,18 +1,18 @@
 %% Define trajectory from set of points 
 
-point = [0, 0;
-    1, 0;
-    2,0
-    3,0.5
-    4,1.5
-    4.8, 1.5
-    5,0.8
-    6, 0.5
-    6.5, 0
-    7.5, 2
-    7,6
-    6, 2
-    5, 4
+point = [0, 1;
+    1, 1;
+    2,1
+    3,1
+    4,1
+    4.8, 1
+    5,1
+    6,1
+    7,1
+    8,2
+    9,2
+    10,2
+    11, 3
     4., 2.5
     3, 3
     2., 3.5;
@@ -49,7 +49,7 @@ quiver(x_traj', y_traj', cos(yaw) * scale_factor, sin(yaw) * scale_factor);
 plot(x_traj, y_traj,'r-'); grid on; hold off;
 title("Sample Trajectory Interpolation");
 xlabel("x[m]");
-ylabel("y[m]");
+ylabel("y[m]")
 
 %% Save trajectory
 traj = [x_traj', y_traj', yaw];

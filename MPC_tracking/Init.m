@@ -2,10 +2,10 @@ rad2deg = 180 / pi;
 deg2rad = pi / 180;
 km2ms = 1000 / 3600;
 
-simulation_time = 10;
+simulation_time = 30;
 sim_dt = 0.002; 
 
-vel_ref = 60 * km2ms;
+vel_ref = 30 * km2ms;
 
 param.tau = 0.2; % steering dynamics: 1d-approximated time constant
 param.wheelbase = 3.5;
