@@ -1,4 +1,4 @@
-%% design path from points by spline
+%% Define trajectory from set of points 
 
 point = [0, 0;
     1, 0;
@@ -22,38 +22,36 @@ point = [0, 0;
 
 s = 1:1:length(point);
 
+x_traj = spline(s, point(:,1), 1:0.01:length(point));
+y_traj = spline(s, point(:,2), 1:0.01:length(point));
 
-px_spline = spline(s, point(:,1), 1:0.01:length(point));
-py_spline = spline(s, point(:,2), 1:0.01:length(point));
+xy_traj = [x_traj', y_traj'];
 
-p_spline = [px_spline', py_spline'];
+%% Add trajectory yaw from consecutive points
 
+yaw = zeros(length(x_traj), 1);
 
-
-%% insert yaw
-
-yaw = zeros(length(px_spline), 1);
-for i = 2:length(px_spline)-1
-    x_forward = px_spline(i+1);
-    x_backward = px_spline(i-1);
-    y_forward = py_spline(i+1);
-    y_backward = py_spline(i-1);
-    yaw(i) = atan2(y_forward-y_backward, x_forward-x_backward);
+for i = 2:length(x_traj)-1
+    x_n = x_traj(i+1);
+    x_prev = x_traj(i-1);
+    y_n = y_traj(i+1);
+    y_prev = y_traj(i-1);
+    yaw(i) = atan2(y_n-y_prev, x_n-x_prev);
 end
-yaw(1) = yaw(2);
-yaw(end) = yaw(end-1);
 
+%% Plot trajectory
 
-%% plot with attitude
+scale_factor = 0.01;
 
-arrow_scale = 0.01;
-
-figure(101);
+figure(200);
 plot(point(:,1), point(:,2), 'bo-'); hold on;
-quiver(px_spline', py_spline', cos(yaw)*arrow_scale, sin(yaw)*arrow_scale);
-plot(px_spline, py_spline,'r-'); grid on; hold off;
+quiver(x_traj', y_traj', cos(yaw) * scale_factor, sin(yaw) * scale_factor);
+plot(x_traj, y_traj,'r-'); grid on; hold off;
+title("Sample Trajectory Interpolation");
+xlabel("x[m]");
+ylabel("y[m]");
 
-%% save path
-traj = [px_spline', py_spline', yaw];
+%% Save trajectory
+traj = [x_traj', y_traj', yaw];
 
 save('traj', 'traj')

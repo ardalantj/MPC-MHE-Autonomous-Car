@@ -1,44 +1,31 @@
-% Unit conversions
-param.km2ms = 1000/3600;
-param.deg2rad = pi/180;
-param.rad2deg = 180/pi;
-
-% Vehicle Params
+rad2deg = 180 / pi;
 deg2rad = pi / 180;
-param.tau = 0.2;
-param.wheelbase = 2.7;
+km2ms = 1000 / 3600;
+
+simulation_time = 10;
+sim_dt = 0.002; 
+
+vel_ref = 60 * km2ms;
+
+param.tau = 0.2; % steering dynamics: 1d-approximated time constant
+param.wheelbase = 3.5;
 param.steer_lim = 30 * deg2rad;
 param.vel_max = 10;
 param.vel_min = -5;
-param.control_delay = 0.2;
-param.control_dt = 0.03;
-param.input_delay = 0.2;
-param.measurement_noise = [0.1, 0.1, 1.0*deg2rad, 0.5*deg2rad];
-param.sim_time = 20;
-param.sim_dt = 0.02; % simulation time step
-param.ts = 0; % simulation start time 
 
+param.input_delay = 0.24; % [s]
+param.control_dt = 0.03; % [s]
+param.measurement_noise_stddev = [0.1, 0.1, 1.0*deg2rad, 0.5*deg2rad]; % measurement noise
+param.steering_steady_state_error_deg = 1;
 
-% MPC
+% MPC parameters
 param.mpc_dt = 0.1;
-param.mpc_N = 30;
-param.mpc_cons_steer_deg = 30;
-param.mpc_cons_steer_rate = 280;
-param.mpc_Q = diag([1,1,0]);
-param.mpc_R = 0.05;
-param.vel_ref = 30 * param.km2ms
+param.mpc_n = 30;
+param.mpc_constraint_steering_deg = 30;
+param.mpc_constraint_steer_rate_deg = 280;
+param.mpc_model_dim = 3;
+param.mpc_Q = diag([1,2]);
+param.mpc_R = 0.5;
+param.mpc_delay_step = round(param.input_delay / param.control_dt);
 
-% id handlers for easier matrix access
-param.id_x = 1;
-param.id_y = 2;
-param.id_yaw = 3;
-param.id_vel = 4;
-param.id_curve = 5;
-param.id_time = 6;
-
-param.DIM_STATE = 4;
-param.DIM_OUTPUT = 3;
-param.DIM_INPUT = 1;
-
-% initial position (x, y, yaw, delta)
-x0 = [0, 0.5, 0, 0];
+param.mpc_sensor_delay = param.input_delay; 
