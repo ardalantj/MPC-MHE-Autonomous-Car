@@ -71,7 +71,7 @@ C_bar = zeros(DIM_Y * mpc_n, DIM_X * mpc_n);
 Q_bar = zeros(DIM_Y * mpc_n, DIM_Y * mpc_n);
 R_bar = zeros(DIM_U * mpc_n, DIM_U * mpc_n);
 
-mpc_refv = zeros(mpc_n + delay_step, 1);
+mpc_ref_vel = zeros(mpc_n + delay_step, 1);
 debug_refmat = zeros(mpc_n + delay_step,5);
 
 % apply delay compensation : update dynamics with increasing mpt_t 
@@ -85,14 +85,14 @@ for i = 1:delay_step
     k_ = ref_curr(CURVE);
     
     [Ad, Bd, wd, ~] = get_error_dynamics(param.control_dt, v_, param.wheelbase, param.tau, k_);
+    
     u_now = deltades_buffer(end - i + 1);
     x_next = Ad * x_curr + Bd * u_now + wd;
     
     mpc_t = mpc_t + param.control_dt; 
     x_curr = x_next;
     
-    mpc_refv(i) = v_;
-    
+    mpc_ref_vel(i) = v_;   
 end
 
 x0 = x_curr;
@@ -112,7 +112,7 @@ C_bar(1:DIM_Y, 1:DIM_X) = Cd;
 Q_bar(1:DIM_Y, 1:DIM_Y) = Q;
 R_bar(1:DIM_U, 1:DIM_U) = R;
 
-mpc_refv(1 + delay_step) = v_;
+mpc_ref_vel(1 + delay_step) = v_;
 
 % MPC after first step
 for i = 2:mpc_n
@@ -147,25 +147,21 @@ for i = 2:mpc_n
     Q_bar(Y_i, Y_i) = Q;
     R_bar(index_u_n, index_u_n) = R;
     
-    mpc_refv(i + delay_step) = v_;   
+    mpc_ref_vel(i + delay_step) = v_;   
 end
 
 %% Quadprog setup for MPC
 
 % The problem is to solve following for U.
-%   1/2 * U'* mat1 * U + mat2 * U + C = 0
+%   1/2 * U'* X1 * U + X2 * U + C = 0
 
-mat1 = B_bar' * C_bar' * Q_bar * C_bar * B_bar + R_bar;
-mat2 = (x0' * A_bar' + W_bar') * C_bar' * Q_bar * C_bar * B_bar;
+X1 = B_bar' * C_bar' * Q_bar * C_bar * B_bar + R_bar;
+X2 = (x0' * A_bar' + W_bar') * C_bar' * Q_bar * C_bar * B_bar;
 
 steering_rate_lim = param.mpc_constraint_steer_rate_deg * deg2rad;
 
-if param.mpc_solve_without_constraint == true
-    control_input = -mat1 \ mat2';
-else
-
-    H = (mat1 + mat1') / 2;
-    f = mat2;
+    H = (X1 + X1') / 2;
+    f = X2;
     
     % Steering rate constraint
     tmp = -eye(mpc_n-1, mpc_n);
@@ -176,27 +172,28 @@ else
     b_ = [steering_rate_lim * ones(mpc_n-1,1) - dsteer_vec_tmp_; steering_rate_lim * ones(mpc_n-1,1) + dsteer_vec_tmp_];
 
     % Steering limit constraint 
-    lb_ = -param.mpc_constraint_steering_deg * deg2rad * ones(mpc_n * DIM_U,1);
-    ub_ = param.mpc_constraint_steering_deg * deg2rad * ones(mpc_n * DIM_U,1);
-    options_ = optimoptions('quadprog', 'Algorithm','interior-point-convex', 'Display', 'off');
+    lb = -param.mpc_constraint_steering_deg * deg2rad * ones(mpc_n * DIM_U,1);
+    ub = param.mpc_constraint_steering_deg * deg2rad * ones(mpc_n * DIM_U,1);
+    options = optimoptions('quadprog', 'Algorithm','interior-point-convex', 'Display', 'off');
     
-    [x_opt, ~, exitflag, ~, ~] = quadprog(H, f, A_, b_, [], [], lb_, ub_, [], options_);
+    [x_opt, ~, exitflag, ~, ~] = quadprog(H, f, A_, b_, [], [], lb, ub, [], options);
     
     % Check MPC feasibility
     if(exitflag == 0)
         disp("Max number of iterations were exceeded");
     elseif(exitflag == -2)
         disp("MPC problem is not feasible");
+    else
+        disp("Optimization is feasible");
     end
     
     control_input = x_opt;
 
     % for debug: compare with / without constraint optimization
-%     control_input_LS = -mat1 \ mat2';
+%     control_input_LS = -X1 \ X2';
 %     figure(101);
 %     plot(control_input_LS); hold on;
 %     plot(control_input); grid on; hold off;
-end
 
 delta_des = control_input(1);
 v_des = ref_setpoint(VEL);
@@ -211,10 +208,9 @@ x_ = state;
 predictd_states = zeros(length(control_input), length(state));
 
 for i = 1:length(control_input)
-    x_next = calc_kinematics_model(x_, control_input(i), mpc_dt, mpc_refv(i), param.wheelbase, param.tau);
+    x_next = calc_kinematics_model(x_, control_input(i), mpc_dt, mpc_ref_vel(i), param.wheelbase, param.tau);
     predictd_states(i,:) = x_next';
-    x_ = x_next;
-    
+    x_ = x_next;   
 end
 
 predictd_states_vector = reshape(predictd_states, [], 1);
@@ -230,7 +226,6 @@ predicted_state_ideal = debug_refmat_no_delay_comp(:,1:2) + ...
 predicted_state_ideal = (reshape(predicted_state_ideal, [], 1));
 
 debug_info = [control_input', predictd_states_vector', predicted_state_ideal', error_lat];
-
 
 % for debug 
 % figure(1);plot(predicted_error(:,1),'b*-');
@@ -257,10 +252,12 @@ function [Ad, Bd, wd, Cd] = get_error_dynamics(dt, v, L, tau, radius)
     %      0];
 
     % linearization around delta = delta_ref (better accuracy than delta=0)
-    delta_r = atan(L*radius);
+    delta_r = atan(L * radius);
+    
     if (abs(delta_r) >= 40 /180 * pi)
-        delta_r = (40 /180 * pi)*sign(delta_r);
+        delta_r = (40 /180 * pi) * sign(delta_r);
     end
+    
     cos_delta_r_squared_inv = 1 / ((cos(delta_r))^2);
 
     % State space matrices 
@@ -271,7 +268,7 @@ function [Ad, Bd, wd, Cd] = get_error_dynamics(dt, v, L, tau, radius)
     C = [1, 0, 0;
          0, 1, 0];
     w = [0; 
-        -v*radius + v/L*(tan(delta_r) - delta_r*cos_delta_r_squared_inv);
+        -v * radius + v/L*(tan(delta_r) - delta_r*cos_delta_r_squared_inv);
          0];
     
     % Discrete matrix conversion
@@ -283,7 +280,7 @@ function [Ad, Bd, wd, Cd] = get_error_dynamics(dt, v, L, tau, radius)
     wd = w * dt;
 end
 
-%% Kinematics vehicle model
+%% Kinematics Vehicle Model
 
 function x_next = calc_kinematics_model(x, u, dt, v, L, tau)
 

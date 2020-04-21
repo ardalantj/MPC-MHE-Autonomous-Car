@@ -27,7 +27,7 @@ for t = ts:dt:tf
         [u, u_debug] = controller(x_noised, t, ref, param);
     end
     
-    % -- add input delay --
+    % add delay to control
     input_buf = [u; input_buf(1:end-1, :)];
     u_delayed = input_buf(end,:);
     
@@ -38,7 +38,7 @@ for t = ts:dt:tf
     k4 = model(x + dt*k3, u_delayed, param);
     x = x + (k1 + 2*k2 + 2*k3 + k4) * dt / 6;
     
-    % -- save data --
+    % Cache data
     state_log(i,:) = x;
     input_log(i,:) = u;
     debug_info(i,:) = u_debug;

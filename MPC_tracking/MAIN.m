@@ -49,7 +49,7 @@ path_size_scale = 10;
 traj(:,XY) = traj(:,XY) * path_size_scale;
 ref(:,1:3) = traj(:,1:3);
 
-ref(:,VEL) = ones(length(traj),1)*vel_ref;
+ref(:,VEL) = ones(length(traj),1) * vel_ref;
 
 % Add time into trajectory
 for i = 2:length(ref)
@@ -61,6 +61,7 @@ end
 
 % Find radius of the curve by looking at three points along the trajectory
 % R = ABC/(4*A) where ABC are sides of the triangle and A is the area
+
 for i = 2:length(ref)-1
     % Look at previous, current, and next point
     point1 = ref(i-1,XY);
@@ -85,9 +86,9 @@ subpl3 = 'subplot(sp_num,sp_num, sp_num*16+1:sp_num*18);';
 
 fig_trajectory_result = figure(1);
 
-set(fig_trajectory_result, 'Position', [716 735 1026 1146]);
+%set(fig_trajectory_result, 'Position', [716 735 1026 1146]);
 eval(subpl1);
-plot(ref(:,1), ref(:,2),'k-.'); hold on; grid on;
+plot(ref(:,1), ref(:,2),'k-.', "LineWidth", 3); hold on; grid on;
 xlabel('x [m]'); ylabel('y [m]');
 
 % eval(subpl2);
@@ -135,7 +136,7 @@ for i = fig_draw_i
     front_y = rear_y;
     delete([setpoint, rear_tire, front_tire, body, look_ahead, setpoint_ideal, error_point, steer_point, time_bar_laterror, time_bar_steer]);
     
-    look_ahead = plot(X(1:i,1), X(1:i,2),'g');
+    look_ahead = plot(X(1:i,1), X(1:i,2),'r', "LineWidth", 3);
     
 %     title_draw = "t = "+num2str(t(i),'%5.1f') + "[s], steer = " + num2str(delta*rad2deg,'%+3.1f') + "[deg], v = " + ...
 %         num2str(vel_ref*3600/1000,'%3.1f') + "[km/h], lat error = "+num2str(lat_error_vec(i),'%+2.2f') + "[m]";
@@ -150,9 +151,9 @@ for i = fig_draw_i
 %         setpoint = plot(pred_states(:,1), pred_states(:,2), 'bo'); % include linealize error
         pred_error = debug(i, param.mpc_n*(5)+1:param.mpc_n*(7));
         pred_error = reshape(pred_error, param.mpc_n, length(pred_error)/param.mpc_n);
-        
+        title("Twisty Road Trajectory Following", "FontSize", 24)
         % nonlinear prediction 
-        setpoint_ideal = plot(pred_error(:,1), pred_error(:,2), 'c', 'LineWidth', 2); 
+        setpoint_ideal = plot(pred_error(:,1), pred_error(:,2), 'c', 'LineWidth', 3); 
     end
     
     rear_tire = plot([rear_x-1, rear_x+1],[rear_y, rear_y], 'b', 'LineWidth', 4.0);
