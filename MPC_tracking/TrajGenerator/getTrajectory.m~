@@ -22,7 +22,6 @@
 %     0,2];
 addpath("/Users/ardalan/Desktop");
 load("Ref_traj_01.mat");
-
 X = xx(1,1:20);
 Y = xx(2,1:20);
 point = [X',Y'];
@@ -32,7 +31,7 @@ x_traj = spline(s, point(:,1), 1:0.01:length(point));
 y_traj = spline(s, point(:,2), 1:0.01:length(point));
 
 xy_traj = [x_traj', y_traj'];
-xy_traj = [X',Y'];
+xy_traj = [X',Y']
 
 %% Add trajectory yaw from consecutive points
 

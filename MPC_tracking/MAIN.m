@@ -20,7 +20,7 @@ Init;
 %% Initial sim parameters
 
 % initial position (x, y, yaw, delta)
-x0 = [0, 0, 0, 0];
+x0 = [2, 0, 0, 0];
 
 ts = 0;
 dt = sim_dt;
