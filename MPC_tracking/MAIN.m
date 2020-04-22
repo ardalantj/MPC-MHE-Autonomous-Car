@@ -10,19 +10,17 @@ set(0, 'defaultTextFontSize', 20);
 set(0, 'DefaultAxesLineWidth', 1.0, 'DefaultLineLineWidth', 1.0);
 
 % Defines a trajectory from a set of predefined points
-addpath('TrajGenerator')
-
-control_mode = "mpc";
+addpath('TrajGenerator');
 
 save_video = 1; %1:save, 0:no
 
-% Runs the setup and sets the high level parameters
+% Runs the setup and sets the high level system parameters
 Init;
 
 %% Initial sim parameters
 
 % initial position (x, y, yaw, delta)
-x0 = [0, 0.5, 0, 0];
+x0 = [0, 0, 0, 0];
 
 ts = 0;
 dt = sim_dt;
@@ -45,7 +43,7 @@ VEL = 4;
 Radius = 5;
 TIME = 6;
 
-path_size_scale = 10;
+path_size_scale = 15;
 traj(:,XY) = traj(:,XY) * path_size_scale;
 ref(:,1:3) = traj(:,1:3);
 
@@ -54,7 +52,7 @@ ref(:,VEL) = ones(length(traj),1) * vel_ref;
 % Add time into trajectory
 for i = 2:length(ref)
     vel = ref(i,VEL);
-    dist = norm(ref(i,XY) - ref(i-1,XY));
+    dist = vecnorm(ref(i,XY) - ref(i-1,XY));
     dt = dist / vel;
     ref(i, TIME) = ref(i-1, TIME) + dt;
 end
@@ -72,15 +70,15 @@ for i = 2:length(ref)-1
 end
 
 %% Simulation
-param.mpc_solve_without_constraint = false;
+
 [X, U, debug] = Simulate_Forward(@KinematicModel, @MPC, x0, ref, ts, dt, tf, param);
 lat_error_vec = debug(:,end);
 %fprintf("Lateral Error: mean square = %f", norm(lat_error_vec)/simulation_time);
 
 %% Visualization and plotting
 
-sp_num = 18;
-subpl1 = 'subplot(sp_num,sp_num, sp_num+1:sp_num*12);';
+sp_num = 20;
+subpl1 = 'subplot(sp_num,sp_num, sp_num+1:sp_num*12)';
 subpl2 = 'subplot(sp_num,sp_num, sp_num*13+1:sp_num*15);';
 subpl3 = 'subplot(sp_num,sp_num, sp_num*16+1:sp_num*18);';
 
@@ -99,17 +97,17 @@ xlabel('x [m]'); ylabel('y [m]');
 % ylim([dlim, ulim]);
 % 
 % eval(subpl3);
-% p1 = plot(t, X(:,4)*rad2deg, 'b'); grid on; hold on; 
-% p2 = plot(t, U(:,2)*rad2deg, 'Color', [0.7 0. 1]); hold on; 
-% legend([p1,p2], {'measured','command'})
-% xlabel('t [s]'); ylabel('steering angle [deg]');
+%p1 = plot(t, X(:,4)*rad2deg, 'b'); grid on; hold on; 
+%p2 = plot(t, U(:,2)*rad2deg, 'Color', [0.7 0. 1]); hold on; 
+%legend([p1,p2], {'measured','command'})
+%xlabel('t [s]'); ylabel('steering angle [deg]');
 % ulim = round(2*max(X(:,4)*rad2deg))/2;
 % dlim = round(2*min(X(:,4)*rad2deg))/2;
 % ylim([dlim, ulim]);
 
 z_axis = [0 0 1];
-setpoint = []; rear_tire = []; front_tire = []; body = []; look_ahead = []; 
-setpoint_ideal = []; error_point = []; steer_point = []; time_bar_laterror = []; time_bar_steer = [];
+setpoint = []; rear_tire = []; front_tire = []; body = []; tracked = []; 
+setpoint_ideal = []; steering_error = []; steer = []; time_bar_laterror = []; time_bar_steer = [];
 L = param.wheelbase;
 rear_length = 1;
 front_length = 1;
@@ -117,7 +115,6 @@ side_width = 1.3;
 fig_draw_i = 1:round(1/dt/20):length(t);
 
 %% Animation setup 
-
 clear frame_vec;
 frame_vec(length(fig_draw_i)) = struct('cdata', [], 'colormap',[]);
 
@@ -134,9 +131,9 @@ for i = fig_draw_i
     delta = X(i,4);
     front_x = rear_x + L;
     front_y = rear_y;
-    delete([setpoint, rear_tire, front_tire, body, look_ahead, setpoint_ideal, error_point, steer_point, time_bar_laterror, time_bar_steer]);
+    delete([setpoint, rear_tire, front_tire, body, tracked, setpoint_ideal, steering_error, steer, time_bar_laterror, time_bar_steer]);
     
-    look_ahead = plot(X(1:i,1), X(1:i,2),'r', "LineWidth", 3);
+    tracked = plot(X(1:i,1), X(1:i,2),'r', "LineWidth", 3);
     
 %     title_draw = "t = "+num2str(t(i),'%5.1f') + "[s], steer = " + num2str(delta*rad2deg,'%+3.1f') + "[deg], v = " + ...
 %         num2str(vel_ref*3600/1000,'%3.1f') + "[km/h], lat error = "+num2str(lat_error_vec(i),'%+2.2f') + "[m]";
@@ -144,7 +141,7 @@ for i = fig_draw_i
 %         num2str(1/param.control_dt, '%d') + "[hz]"];
 %     title_draw = [title_draw; "noise-sigma = " + num2str(param.measurement_noise_stddev(1),'%2.2f')+"(pos), "+ ...
 %         num2str(param.measurement_noise_stddev(3),'%2.2f')+"(yaw), "+num2str(param.measurement_noise_stddev(4),'%2.2f')+"(steer)"];
-    if control_mode == "mpc"
+  
 %        title_draw = [title_draw; "MPC: dt = " + num2str(param.mpc_dt, '%3.3f') + "[s], horizon step = " + num2str(param.mpc_n, '%d')];
 %         pred_states = debug(i, param.mpc_n+1:param.mpc_n*(4+1));
 %         pred_states = reshape(pred_states, param.mpc_n, length(pred_states)/param.mpc_n);
@@ -154,7 +151,6 @@ for i = fig_draw_i
         title("Twisty Road Trajectory Following", "FontSize", 24)
         % nonlinear prediction 
         setpoint_ideal = plot(pred_error(:,1), pred_error(:,2), 'c', 'LineWidth', 3); 
-    end
     
     rear_tire = plot([rear_x-1, rear_x+1],[rear_y, rear_y], 'b', 'LineWidth', 4.0);
     front_tire = plot([front_x-1, front_x+1],[front_y, front_y], 'b', 'LineWidth', 4.0);
@@ -174,13 +170,13 @@ for i = fig_draw_i
      
 %     % lat error
 %     eval(subpl2);
-%     error_point = plot(t(i), lat_error_vec(i), 'ko');
+%     steering_error = plot(t(i), lat_error_vec(i), 'ko');
 %     time_bar_laterror = plot([t(i), t(i)], [100, -100], 'k');
 %     
 %     % steering
 %     eval(subpl3);
-%     steer_point = plot(t(i), X(i, 4)*rad2deg, 'ko');
-%     time_bar_steer = plot([t(i), t(i)], [100, -100], 'k');
+%     steer = plot(t(i), X(i, 4)*rad2deg, 'ko');
+%    time_bar_steer = plot([t(i), t(i)], [100, -100], 'k');
 %     legend([p1,p2], {'measured','command'})
 %     ylim([-40 40]);
   

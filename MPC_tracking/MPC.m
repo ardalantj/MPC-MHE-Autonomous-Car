@@ -1,8 +1,8 @@
 function [u, debug_info] = MPC(state, t, ref, param)
-% 
+
 % state = [x, y, yaw, delta]
-% u = [v_des, delta_des]
-% ref = [x_ref; y_ref; yaw_ref; v_ref; k_ref; t_ref];
+% u = [vel_des, delta_des]
+% ref = [x_ref; y_ref; yaw_ref; vel_ref; curve_ref; t_ref];
 
 persistent deltades_buffer
 if isempty(deltades_buffer)
@@ -25,16 +25,18 @@ distance = vecnorm(ref(:, 1:2)' - state(1:2)');
 ref_setpoint = ref(min_index, :);
 
 % Convert coordinates to error dynamics 
-sp_yaw = ref_setpoint(YAW);
-xy2error = [cos(sp_yaw), sin(sp_yaw);
-             -sin(sp_yaw), cos(sp_yaw)];
+yaw_setpoint = ref_setpoint(YAW);
+xy2error = [cos(yaw_setpoint), sin(yaw_setpoint);
+             -sin(yaw_setpoint), cos(yaw_setpoint)];
+         
 error_xy = (state(1:2) - ref_setpoint(1:2))';
-trans_error_mat = xy2error * error_xy;
-error_lat = trans_error_mat(2);
+t2lat_error = xy2error * error_xy;
+% Error vector is  
+error_lat = t2lat_error(2);
 
 % Yaw error
-error_yaw = state(YAW) - sp_yaw;
-while (-2*pi <= error_yaw && error_yaw <= 2*pi) == 0 
+error_yaw = state(YAW) - yaw_setpoint;
+while (-2*pi <= error_yaw && error_yaw <= 2*pi) == 0
     if (error_yaw >= 2*pi)
         error_yaw = error_yaw - 2*pi;
     elseif (error_yaw <= -2*pi)
@@ -49,7 +51,7 @@ elseif (error_yaw < -pi)
     error_yaw = error_yaw + 2*pi;
 end
 
-% initial state for error dynamics
+% initial state for error dynamics: lateral error, yaw error, and steering
 x0 = [error_lat; error_yaw; state(4)];
 
 %% MPC setup
@@ -72,19 +74,18 @@ Q_bar = zeros(DIM_Y * mpc_n, DIM_Y * mpc_n);
 R_bar = zeros(DIM_U * mpc_n, DIM_U * mpc_n);
 
 mpc_ref_vel = zeros(mpc_n + delay_step, 1);
-debug_refmat = zeros(mpc_n + delay_step,5);
+debug_ref = zeros(mpc_n + delay_step,5);
 
-% apply delay compensation : update dynamics with increasing mpt_t 
 x_curr = x0;
 
 for i = 1:delay_step
 
-    ref_curr = interp1q(ref(:, TIME), ref(:,1:5), mpc_t);
-    debug_refmat(i,:) = ref_curr;
-    v_ = ref_curr(VEL);
-    k_ = ref_curr(CURVE);
+    ref_current = interp1q(ref(:, TIME), ref(:,1:5), mpc_t);
+    debug_ref(i,:) = ref_current;
+    vel = ref_current(VEL);
+    curve = ref_current(CURVE);
     
-    [Ad, Bd, wd, ~] = get_error_dynamics(param.control_dt, v_, param.wheelbase, param.tau, k_);
+    [Ad, Bd, wd, ~] = get_error_dynamics(param.control_dt, vel, param.wheelbase, param.tau, curve);
     
     u_now = deltades_buffer(end - i + 1);
     x_next = Ad * x_curr + Bd * u_now + wd;
@@ -92,18 +93,18 @@ for i = 1:delay_step
     mpc_t = mpc_t + param.control_dt; 
     x_curr = x_next;
     
-    mpc_ref_vel(i) = v_;   
+    mpc_ref_vel(i) = vel;   
 end
 
 x0 = x_curr;
 
 % First step MPC
-ref_1 = interp1q(ref(:, TIME), ref(:,1:5), mpc_t);
-debug_refmat(1 + delay_step,:) = ref_1; % MODIFIED FOR DELAY
-v_ = ref_1(VEL);
-k_ = ref_1(CURVE);
+ref_1 = interp1(ref(:, TIME), ref(:,1:5), mpc_t);
+debug_ref(1 + delay_step,:) = ref_1; % MODIFIED FOR DELAY
+vel = ref_1(VEL);
+curve = ref_1(CURVE);
 
-[Ad, Bd, wd, Cd] = get_error_dynamics(mpc_dt, v_, param.wheelbase, param.tau, k_); 
+[Ad, Bd, wd, Cd] = get_error_dynamics(mpc_dt, vel, param.wheelbase, param.tau, curve); 
 
 A_bar(1:DIM_X, :) = Ad;
 B_bar(1:DIM_X, 1:DIM_U) = Bd;
@@ -112,7 +113,7 @@ C_bar(1:DIM_Y, 1:DIM_X) = Cd;
 Q_bar(1:DIM_Y, 1:DIM_Y) = Q;
 R_bar(1:DIM_U, 1:DIM_U) = R;
 
-mpc_ref_vel(1 + delay_step) = v_;
+mpc_ref_vel(1 + delay_step) = vel;
 
 % MPC after first step
 for i = 2:mpc_n
@@ -121,12 +122,12 @@ for i = 2:mpc_n
 
     % Interpolate reference points 
     ref_1 = interp1q(ref(:, TIME), ref(:,1:5), mpc_t);
-    debug_refmat(i + delay_step,:) = ref_1;
-    v_ = ref_1(VEL);
-    k_ = ref_1(CURVE);
+    debug_ref(i + delay_step,:) = ref_1;
+    vel = ref_1(VEL);
+    curve = ref_1(CURVE);
     
     % get discrete state matrix
-    [Ad, Bd, wd, Cd] = get_error_dynamics(mpc_dt, v_, param.wheelbase, param.tau, k_);
+    [Ad, Bd, wd, Cd] = get_error_dynamics(mpc_dt, vel, param.wheelbase, param.tau, curve);
     
     % update mpc matrix
     index_x_n = (i-1) * DIM_X+1 : i*DIM_X;
@@ -147,7 +148,7 @@ for i = 2:mpc_n
     Q_bar(Y_i, Y_i) = Q;
     R_bar(index_u_n, index_u_n) = R;
     
-    mpc_ref_vel(i + delay_step) = v_;   
+    mpc_ref_vel(i + delay_step) = vel;   
 end
 
 %% Quadprog setup for MPC
@@ -181,23 +182,19 @@ steering_rate_lim = param.mpc_constraint_steer_rate_deg * deg2rad;
     % Check MPC feasibility
     if(exitflag == 0)
         disp("Max number of iterations were exceeded");
+        
     elseif(exitflag == -2)
         disp("MPC problem is not feasible");
+        
     else
         disp("Optimization is feasible");
     end
     
     control_input = x_opt;
 
-    % for debug: compare with / without constraint optimization
-%     control_input_LS = -X1 \ X2';
-%     figure(101);
-%     plot(control_input_LS); hold on;
-%     plot(control_input); grid on; hold off;
-
 delta_des = control_input(1);
-v_des = ref_setpoint(VEL);
-u = [v_des, delta_des];
+vel_des = ref_setpoint(VEL);
+u = [vel_des, delta_des];
 
 % Add delay
 deltades_buffer = [delta_des; deltades_buffer(1:end-1)];
@@ -207,6 +204,7 @@ deltades_buffer = [delta_des; deltades_buffer(1:end-1)];
 x_ = state;
 predictd_states = zeros(length(control_input), length(state));
 
+% For predicted state apply the entire control vector 
 for i = 1:length(control_input)
     x_next = calc_kinematics_model(x_, control_input(i), mpc_dt, mpc_ref_vel(i), param.wheelbase, param.tau);
     predictd_states(i,:) = x_next';
@@ -215,24 +213,17 @@ end
 
 predictd_states_vector = reshape(predictd_states, [], 1);
 
-debug_refmat_no_delay_comp = debug_refmat(delay_step + 1:end, :);
+debug_ref_no_delay = debug_ref(delay_step + 1:end, :);
 
 predicted_error = A_bar * x0 + B_bar * control_input + W_bar;
 predicted_error = transpose(reshape(predicted_error, 3, []));
 
-predicted_state_ideal = debug_refmat_no_delay_comp(:,1:2) + ...
-    [-sin(debug_refmat_no_delay_comp(:,YAW)).*predicted_error(:,1), cos(debug_refmat_no_delay_comp(:,YAW)).*predicted_error(:,1)];
+predicted_state_ideal = debug_ref_no_delay(:,1:2) + ...
+    [-sin(debug_ref_no_delay(:,YAW)).*predicted_error(:,1), cos(debug_ref_no_delay(:,YAW)).*predicted_error(:,1)];
 
 predicted_state_ideal = (reshape(predicted_state_ideal, [], 1));
 
 debug_info = [control_input', predictd_states_vector', predicted_state_ideal', error_lat];
-
-% for debug 
-% figure(1);plot(predicted_error(:,1),'b*-');
-% figure(3);
-% plot(control_input); hold on;
-% plot(predicted_error(:,3));hold on;
-% plot(predictd_states(:,4)); hold off;
 
 end
 
@@ -254,21 +245,21 @@ function [Ad, Bd, wd, Cd] = get_error_dynamics(dt, v, L, tau, radius)
     % linearization around delta = delta_ref (better accuracy than delta=0)
     delta_r = atan(L * radius);
     
-    if (abs(delta_r) >= 40 /180 * pi)
-        delta_r = (40 /180 * pi) * sign(delta_r);
-    end
+%     if (abs(delta_r) >= 40 /180 * pi)
+%         delta_r = (40 /180 * pi) * sign(delta_r);
+%     end
     
     cos_delta_r_squared_inv = 1 / ((cos(delta_r))^2);
 
     % State space matrices 
     A = [0, v, 0;
-         0, 0, v/L*cos_delta_r_squared_inv;
+         0, 0, v/L * cos_delta_r_squared_inv;
          0, 0, -1/tau];
     B = [0; 0; 1/tau];
     C = [1, 0, 0;
          0, 1, 0];
     w = [0; 
-        -v * radius + v/L*(tan(delta_r) - delta_r*cos_delta_r_squared_inv);
+        -v * radius + v/L*(tan(delta_r) - delta_r * cos_delta_r_squared_inv);
          0];
     
     % Discrete matrix conversion

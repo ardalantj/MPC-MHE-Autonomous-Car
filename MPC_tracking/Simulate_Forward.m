@@ -5,10 +5,13 @@ i = 1;
 
 t_vec = ts:dt:tf;
 
-state_log = zeros(length(t_vec), length(x0));
+% Call MPC function and recieve control action
 [tmp_u, tmp_u_debug] = controller(x0, ts, ref, param);
+
+state_log = zeros(length(t_vec), length(x0));
 input_log = zeros(length(t_vec), length(tmp_u));
 debug_info = zeros(length(t_vec), length(tmp_u_debug));
+
 
 input_delay = param.input_delay;
 delay_count = round(input_delay / dt);
@@ -31,11 +34,11 @@ for t = ts:dt:tf
     input_buf = [u; input_buf(1:end-1, :)];
     u_delayed = input_buf(end,:);
     
-    % Call the integrator 
+    % Call the integrator (RK4)
     k1 = model(x, u_delayed, param);
     k2 = model(x + k1*dt/2, u_delayed, param);
     k3 = model(x + k2*dt/2, u_delayed, param);
-    k4 = model(x + dt*k3, u_delayed, param);
+    k4 = model(x + k3*dt, u_delayed, param);
     x = x + (k1 + 2*k2 + 2*k3 + k4) * dt / 6;
     
     % Cache data
